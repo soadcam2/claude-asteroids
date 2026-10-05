@@ -9,15 +9,7 @@ const H = 600;
 const keys = {};
 const justPressed = {};
 
-window.addEventListener('keydown', e => {
-  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
-  if (!e.repeat && !keys[e.code]) justPressed[e.code] = true;
-  keys[e.code] = true;
-});
 
-window.addEventListener('keyup', e => {
-  keys[e.code] = false;
-});
 
 function pressed(code) {
   const val = justPressed[code];
