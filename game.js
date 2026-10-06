@@ -59,15 +59,18 @@ class Bullet {
   }
 }
 
-// ── PowerUp (disparo triple) ──────────────────────────────────────────────────
+// ── PowerUp ───────────────────────────────────────────────────────────────────
 const TRIPLE_DURATION = 5;     // segundos de efecto
 const TRIPLE_SPREAD   = 0.26;  // rad de separación entre balas (~15°)
-const POWERUP_TTL     = 8;     // segundos antes de desaparecer si no se recoge
+const SLOW_DURATION = 6;     // segundos de efecto
+const SLOW_FACTOR   = 0.5;   // multiplicador de velocidad de los asteroides
+const POWERUP_TTL   = 8;     // segundos antes de desaparecer si no se recoge
 
 class PowerUp {
   constructor(x, y) {
     this.x = x;
     this.y = y;
+    this.type = Math.random() < 0.5 ? 'triple' : 'slow';
     const angle = rand(0, Math.PI * 2);
     this.vx = Math.cos(angle) * 20;
     this.vy = Math.sin(angle) * 20;
@@ -86,8 +89,9 @@ class PowerUp {
   draw() {
     // Parpadeo durante los últimos 2 segundos
     if (this.ttl < 2 && Math.floor(this.ttl * 6) % 2 === 0) return;
-    ctx.strokeStyle = '#0f0';
-    ctx.fillStyle   = '#0f0';
+    const color = this.type === 'triple' ? '#0f0' : '#0ff';
+    ctx.strokeStyle = color;
+    ctx.fillStyle   = color;
     ctx.lineWidth   = 1.5;
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
@@ -95,7 +99,7 @@ class PowerUp {
     ctx.font = 'bold 14px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('3', this.x, this.y + 1);
+    ctx.fillText(this.type === 'triple' ? '3' : 'S', this.x, this.y + 1);
     ctx.textBaseline = 'alphabetic';
   }
 }
@@ -177,6 +181,7 @@ class Asteroid {
 class Ship {
   constructor() {
     this.tripleTimer = 0;   // segundos restantes de disparo triple
+    this.slowTimer = 0;   // segundos restantes de cámara lenta
     this.reset();
   }
 
@@ -198,6 +203,7 @@ class Ship {
     if (this.invincible    > 0) this.invincible    -= dt;
     if (this.shootCooldown > 0) this.shootCooldown -= dt;
     if (this.tripleTimer   > 0) this.tripleTimer   -= dt;
+    if (this.slowTimer     > 0) this.slowTimer     -= dt;
 
     const ROT   = 3.5;   // rad/s
     const THRUST = 260;  // px/s²
@@ -356,6 +362,7 @@ function killShip() {
   explode(ship.x, ship.y, 14);
   ship.dead = true;
   ship.tripleTimer = 0;
+  ship.slowTimer = 0;
   lives--;
   if (lives <= 0) {
     state = 'gameover';
@@ -390,7 +397,8 @@ function update(dt) {
 
   ship.update(dt);
   bullets.forEach(b => b.update(dt));
-  asteroids.forEach(a => a.update(dt));
+  const asteroidDt = ship.slowTimer > 0 ? dt * SLOW_FACTOR : dt;
+  asteroids.forEach(a => a.update(asteroidDt));
   particles.forEach(p => p.update(dt));
   powerups.forEach(p => p.update(dt));
 
@@ -401,7 +409,8 @@ function update(dt) {
   for (const p of powerups) {
     if (dist(ship, p) < ship.radius + p.radius) {
       p.dead = true;
-      ship.tripleTimer = TRIPLE_DURATION;
+      if (p.type === 'triple') ship.tripleTimer = TRIPLE_DURATION;
+      else ship.slowTimer = SLOW_DURATION;
     }
   }
   powerups = powerups.filter(p => !p.dead);
@@ -476,6 +485,12 @@ function drawHUD() {
     ctx.fillStyle = '#0f0';
     ctx.textAlign = 'left';
     ctx.fillText(`TRIPLE ${Math.ceil(ship.tripleTimer)}s`, 14, H - 14);
+  }
+
+  if (ship.slowTimer > 0) {
+    ctx.fillStyle = '#0ff';
+    ctx.textAlign = 'left';
+    ctx.fillText(`SLOW ${Math.ceil(ship.slowTimer)}s`, 14, H - (ship.tripleTimer > 0 ? 34 : 14));
   }
 }
 
