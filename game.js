@@ -67,10 +67,10 @@ const SLOW_FACTOR   = 0.5;   // multiplicador de velocidad de los asteroides
 const POWERUP_TTL   = 8;     // segundos antes de desaparecer si no se recoge
 
 class PowerUp {
-  constructor(x, y) {
+  constructor(x, y, type) {
     this.x = x;
     this.y = y;
-    this.type = Math.random() < 0.5 ? 'triple' : 'slow';
+    this.type = type;   // 'triple' | 'slow'
     const angle = rand(0, Math.PI * 2);
     this.vx = Math.cos(angle) * 20;
     this.vy = Math.sin(angle) * 20;
@@ -306,7 +306,7 @@ class Particle {
 // ── Estado del juego ──────────────────────────────────────────────────────────
 let ship, bullets, asteroids, particles, powerups;
 let score, lives, level;
-let powerupKills, powerupKillTarget, powerupSpawned;  // powerup: 1 vez por nivel
+let powerupKills, powerupPlan;  // cada powerup cae 1 vez por nivel
 let state;      // 'playing' | 'dead' | 'gameover'
 let deadTimer;
 
@@ -322,12 +322,18 @@ function spawnAsteroids(count) {
   }
 }
 
-// Sortea en qué destrucción del nivel cae el powerup. Un nivel siempre tiene
-// >= 28 destrucciones posibles (4 grandes x 7), así que N (<= 10) siempre se alcanza.
+// Sortea en qué destrucción del nivel cae cada powerup (una vez cada tipo, en
+// destrucciones distintas). Un nivel siempre tiene >= 28 destrucciones posibles
+// (4 grandes x 7), así que N (<= 10) siempre se alcanza.
 function resetPowerupRoll() {
-  powerupKills      = 0;
-  powerupKillTarget = randInt(3, 10);
-  powerupSpawned    = false;
+  powerupKills = 0;
+  const tripleAt = randInt(3, 10);
+  let slowAt;
+  do { slowAt = randInt(3, 10); } while (slowAt === tripleAt);
+  powerupPlan = [
+    { type: 'triple', kill: tripleAt },
+    { type: 'slow',   kill: slowAt },
+  ];
 }
 
 function initGame() {
@@ -426,10 +432,8 @@ function update(dt) {
         explode(a.x, a.y, a.size * 5);
         newAsteroids.push(...a.split());
         powerupKills++;
-        if (!powerupSpawned && powerupKills >= powerupKillTarget) {
-          powerups.push(new PowerUp(a.x, a.y));
-          powerupSpawned = true;
-        }
+        for (const plan of powerupPlan)
+          if (plan.kill === powerupKills) powerups.push(new PowerUp(a.x, a.y, plan.type));
       }
     }
   }
